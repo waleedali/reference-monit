@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/types.h>
 
 
@@ -23,9 +24,6 @@ typedef struct _rule
 	char filename[MAX_RULE_STR_LEN];
 	char keyword[MAX_RULE_STR_LEN];  
 } Rule;
-
-char* accessToString[] = {"READ", "WRITE", "READ", "WRITE"};
-char* accessToString2[] = {"", "", "EXCEPT", "ONLY"};
 
 Rule myPolicy[MAX_RULES_IN_POLICY];
 
@@ -49,17 +47,6 @@ void add_file_descriptor(int file_desc, const char *path)
 	myFdTable[curentFdTableIndex].fd = file_desc;
 	myFdTable[curentFdTableIndex].filename = path;
 } 
-
-void remove_file_descriptor(int file_desc, const char *path) 
-{
-	// if (-1 != curentFdTableIndex)
-	// {
-	// 	myFdTable[curentFdTableIndex].fd = -1;
-	// 	myFdTable[curentFdTableIndex].filename = NULL;
-	// }
-	
-	// curentFdTableIndex--;
-}
 
 const char *get_file_name(int file_desc)
 {
@@ -130,9 +117,12 @@ void initilize_rules()
 	myPolicy[1].access = WRITE_ACCESS;
 	strcpy(myPolicy[1].filename, "secret2.txt");
 
+	myPolicy[2].uid = 1000;
+	myPolicy[2].access = WRITE_ONLY_ACCESS;
+	strcpy(myPolicy[2].filename, "write_secret.txt");
+	strcpy(myPolicy[2].keyword, "TOP_SECRET");
 
 	// Initialize the file descriptor table
-		//initialize the rules 
 	for (int j = 0; j < MAX_FD_TABLE; j++)
 	{
 		myFdTable[j].fd = -1;
@@ -221,7 +211,7 @@ int my_open(const char *path, int oflags, ...)
 		}
 		else
 		{
-			ret = open(path, O_RDONLY, args);
+			ret = open(path, O_WRONLY, args);
 			add_file_descriptor(ret, path);
 		}
 	}
@@ -234,7 +224,7 @@ int my_open(const char *path, int oflags, ...)
 		}
 		else
 		{
-			ret = open(path, O_RDONLY, args);
+			ret = open(path, O_RDWR, args);
 			add_file_descriptor(ret, path);
 		}
 	}
@@ -254,7 +244,6 @@ ssize_t my_read(int fildes, void *buf, size_t nbyte)
 {
 	// get the file path
 	const char *path = get_file_name(fildes);
-	printf("File desc path is: %s \n", path);
 
 	int allowedAccess = 0x3; //default allow - this is a bit mask, first bit is read, second bit is write
 	char *keyword;
@@ -338,8 +327,6 @@ ssize_t my_read(int fildes, void *buf, size_t nbyte)
     		{
 				int start_index = -1, end_index = -1;
 				search_string(bufferptr, prefix, suffix, &start_index, &end_index);
-
-				printf("output: %i, %i", start_index, end_index);
 				
 				if (-1 != start_index)
 				{
@@ -369,5 +356,148 @@ ssize_t my_read(int fildes, void *buf, size_t nbyte)
 		}
 		
 	}
+
+	return ret;	
+}
+
+ssize_t my_write(int fildes, void *buf, size_t nbyte)
+{
+	// get the file path
+	const char *path = get_file_name(fildes);
 	
+	printf("File desc path is: %s \n", path);
+
+	int allowedAccess = 0x3; //default allow - this is a bit mask, first bit is read, second bit is write
+	char *keyword;
+
+	//a flag to see if the current rule is the first rule fo rthe file
+	int bFirstRule = 1; 
+
+	//return value after policy checks
+	int ret;
+
+	// policy rules check
+	for (int i = 0; i < MAX_RULES_IN_POLICY; i++)
+	{
+		// short circuit the check if the rule has an invalid uid
+		if ( myPolicy[i].uid == MY_INVALID_UID )
+		{
+			break;
+		}
+
+		if ( (MY_CURRENT_UID == myPolicy[i].uid) || (MY_CURRENT_EUID == myPolicy[i].uid) )
+		{
+			//if the current uid or euid is specified in the rule
+			// then see if the file being opened is also in the rule
+
+			if (strcmp(path, myPolicy[i].filename) == 0) 
+			{
+				printf("File [%s] is being opened for write\n", path);
+				//since the filenames are the same we now change the allowedAccess
+				// to 0 (deny) - the actual rules will set the other permissions
+				// we only do it if its the first rule
+				if (bFirstRule)
+				{
+					allowedAccess = 0;
+					bFirstRule = 0;
+				}
+
+				if ( (myPolicy[i].access == WRITE_ACCESS) || (myPolicy[i].access == WRITE_ONLY_ACCESS) )
+				{
+					allowedAccess |= 0x2; 
+					keyword = myPolicy[i].keyword;
+				}
+			}
+		}
+	}
+
+
+	// check if it's open for WRONLY or RDWR
+	if (!(allowedAccess & 0x2) || !(allowedAccess & 0x3)) 
+	{
+		ret = -1;
+		printf("The file [%s] is being opened for write, but is not allowed\n", path);
+	}
+	else 
+	{
+		
+
+
+		// Mask the secret infromation if a keyword exist in the policy
+		if (*keyword != '\0')
+		{
+
+			// Build the secret tag strings
+			// This produces an opening tag like <SECRET>
+			int keywordlen = (int)strlen(keyword);
+			char prefix[keywordlen+3];
+			prefix[0] = '<';
+			memcpy(prefix+1, keyword, keywordlen+1);
+			prefix[keywordlen+1] = '>';
+			prefix[keywordlen+2] = '\0';
+
+			// This produces a closing tag like </SECRET>
+			char suffix[keywordlen+4];
+			suffix[0] = '<';
+			suffix[1] = '/';
+			memcpy(suffix+2, keyword, keywordlen+2);
+			suffix[keywordlen+2] = '>';
+			suffix[keywordlen+3] = '\0';
+
+			char *bufferptr = (char *)buf;
+			while (*bufferptr)
+    		{
+				int start_index = -1, end_index = -1;
+				search_string(bufferptr, prefix, suffix, &start_index, &end_index);
+
+				//printf("output: %i, %i", start_index, end_index);
+				
+				printf("indexes: %i %i \n", start_index, end_index);
+				if (-1 != start_index)
+				{
+					// Mask all the secret infomration
+					buf = buf + start_index-1;
+					int output_len = end_index+keywordlen+2-start_index;
+					char write_buffer[output_len];
+					memcpy(write_buffer, buf, output_len+1);
+					printf("output to save: %s \n", write_buffer);
+					printf("output size: %i \n", end_index+keywordlen+2-start_index);
+					ret = write(fildes, write_buffer, output_len+1);
+					
+
+					printf("indexes: %i \n", ret);
+					printf("error: %s \n", strerror(errno));
+					
+					// // if there's no closing tag just mask until the end of current buffer
+					// if (-1 == end_index)
+					// 	end_index = (int)strlen(bufferptr);
+
+					// for (int k = start_index-1; k < end_index+keywordlen+2; k++)
+					// {
+					// 	*((char *)buf++) = '*';
+					// 	//printf("%c", *((char *)buf++));
+					// }
+					bufferptr = bufferptr+end_index+keywordlen+2;
+				}
+				else
+				{
+					bufferptr++;	
+				}
+				
+			}
+
+			
+
+
+			printf("\n");
+		}
+		
+	}
+
+	return ret;
+}
+
+int my_close(int fildes)
+{
+	return close(fildes);
 }
