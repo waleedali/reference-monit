@@ -84,7 +84,9 @@ void search_string(char *str, char *prefix, char *suffix, int *start_index, int 
     	strindex++;
         if (!memcmp(str, prefix, prefixlen))
         {
-            *start_index = strindex;
+        	// only set the starting index if it's the parent of all nested tags
+        	if (0 == opentags)
+            	*start_index = strindex;
             opentags++;
         }
         else if (!memcmp(str, suffix, suffixlen))
@@ -93,13 +95,17 @@ void search_string(char *str, char *prefix, char *suffix, int *start_index, int 
 
         	// so we can bypass any nested tags
         	if (opentags > 0)
+        	{
         		opentags--;
 
         		// return on the last close tag
         		if (opentags == 0)
         			break;
+        	}
         	else
+        	{
         		break;
+        	}
         }
     }
 }
@@ -333,16 +339,29 @@ ssize_t my_read(int fildes, void *buf, size_t nbyte)
 				int start_index = -1, end_index = -1;
 				search_string(bufferptr, prefix, suffix, &start_index, &end_index);
 
-				//printf("output: %i, %i", start_index, end_index);
-				// Mask all the secret infomration
-				buf = buf + start_index-1;
-				for (int k = start_index-1; k < end_index+keywordlen+2; k++)
+				printf("output: %i, %i", start_index, end_index);
+				
+				if (-1 != start_index)
 				{
-					*((char *)buf++) = '*';
-					//printf("%c", *((char *)buf++));
-				}
+					// Mask all the secret infomration
+					buf = buf + start_index-1;
 
-				bufferptr = bufferptr+end_index+keywordlen+2;
+					// if there's no closing tag just mask until the end of current buffer
+					if (-1 == end_index)
+						end_index = (int)strlen(bufferptr);
+
+					for (int k = start_index-1; k < end_index+keywordlen+2; k++)
+					{
+						*((char *)buf++) = '*';
+						//printf("%c", *((char *)buf++));
+					}
+					bufferptr = bufferptr+end_index+keywordlen+2;
+				}
+				else
+				{
+					bufferptr++;	
+				}
+				
 			}
 
 
