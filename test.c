@@ -35,6 +35,15 @@ void run_test_cases()
 	int file_desc;
 	char buffer[BUF_SIZE];
 
+	// Open Test case 1 - policy enforcement
+	printf("Open Test case 1 - policy enforcement  \n");
+	file_desc = my_open("secret.txt", O_WRONLY);
+	if (file_desc == -1)
+	{
+		printf("Error opening the file. \n\n");
+	}
+	my_close(file_desc);
+
 	// Read Test case 1 - reading a file with secrets and plain text
 	printf("Read Test case 1 - reading a file with secrets and plain text \n");
 	file_desc = my_open("secret.txt", O_RDONLY);
@@ -98,6 +107,7 @@ void run_test_cases()
 	}
 	clear_buffer(buffer);
 	my_close(file_desc);
+
 
 }
 
