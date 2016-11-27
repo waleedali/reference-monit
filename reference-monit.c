@@ -122,6 +122,26 @@ void initilize_rules()
 	strcpy(myPolicy[2].filename, "write_secret.txt");
 	strcpy(myPolicy[2].keyword, "TOP_SECRET");
 
+	myPolicy[3].uid = 1000;
+	myPolicy[3].access = READ_EXCEPT_ACCESS;
+	strcpy(myPolicy[3].filename, "secret3.txt");
+	strcpy(myPolicy[3].keyword, "SECRET");
+
+	myPolicy[4].uid = 1000;
+	myPolicy[4].access = READ_EXCEPT_ACCESS;
+	strcpy(myPolicy[4].filename, "secret4.txt");
+	strcpy(myPolicy[4].keyword, "SECRET");
+
+	myPolicy[5].uid = 1000;
+	myPolicy[5].access = READ_EXCEPT_ACCESS;
+	strcpy(myPolicy[5].filename, "secret5.txt");
+	strcpy(myPolicy[5].keyword, "SECRET");
+
+	myPolicy[6].uid = 1000;
+	myPolicy[6].access = READ_EXCEPT_ACCESS;
+	strcpy(myPolicy[6].filename, "secret6.txt");
+	strcpy(myPolicy[6].keyword, "SECRET");
+
 	// Initialize the file descriptor table
 	for (int j = 0; j < MAX_FD_TABLE; j++)
 	{
@@ -365,7 +385,7 @@ ssize_t my_write(int fildes, void *buf, size_t nbyte)
 	// get the file path
 	const char *path = get_file_name(fildes);
 	
-	printf("File desc path is: %s \n", path);
+	// printf("File desc path is: %s \n", path);
 
 	int allowedAccess = 0x3; //default allow - this is a bit mask, first bit is read, second bit is write
 	char *keyword;
