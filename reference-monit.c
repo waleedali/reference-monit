@@ -452,7 +452,7 @@ ssize_t my_write(int fildes, void *buf, size_t nbyte)
 
 				//printf("output: %i, %i", start_index, end_index);
 				
-				printf("indexes: %i %i \n", start_index, end_index);
+				//printf("indexes: %i %i \n", start_index, end_index);
 				if (-1 != start_index)
 				{
 					// Mask all the secret infomration
@@ -460,13 +460,13 @@ ssize_t my_write(int fildes, void *buf, size_t nbyte)
 					int output_len = end_index+keywordlen+2-start_index;
 					char write_buffer[output_len];
 					memcpy(write_buffer, buf, output_len+1);
-					printf("output to save: %s \n", write_buffer);
-					printf("output size: %i \n", end_index+keywordlen+2-start_index);
+					//printf("output to save: %s \n", write_buffer);
+					//printf("output size: %i \n", end_index+keywordlen+2-start_index);
 					ret = write(fildes, write_buffer, output_len+1);
 					
 
-					printf("indexes: %i \n", ret);
-					printf("error: %s \n", strerror(errno));
+					//printf("indexes: %i \n", ret);
+					//printf("error: %s \n", strerror(errno));
 					
 					// // if there's no closing tag just mask until the end of current buffer
 					// if (-1 == end_index)

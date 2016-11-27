@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 		printf("\n test [filename] \n");
 		printf("\n test (without a filename, runs all test) \n");
 
-		printf("\n Running all test cases: \n");
+		printf("\n Running all test cases: \n\n");
 		run_test_cases();
 
 		return 0;
@@ -35,7 +35,25 @@ void run_test_cases()
 	int file_desc;
 	char buffer[BUF_SIZE];
 
-	// Read Test case 1
+	// Read Test case 1 - reading a file with secrets and plain text
+	printf("Read Test case 1 - reading a file with secrets and plain text \n");
+	file_desc = my_open("secret.txt", O_RDONLY);
+
+	if (file_desc == -1)
+	{
+		printf("Error opening the file. \n");
+	}
+	else
+	{
+		my_read(file_desc, buffer, 500);
+		printf("File read output: %s \n", buffer);		
+	}
+	clear_buffer(buffer);
+	my_close(file_desc);
+
+	// Read Test case 2 - reading a file with secrets but the buffer read size 
+	// ends before the secret block ends
+	printf("Read Test case 2 - the buffer read size ends before the secret block ends \n");
 	file_desc = my_open("secret.txt", O_RDONLY);
 
 	if (file_desc == -1)
@@ -45,24 +63,41 @@ void run_test_cases()
 	else
 	{
 		
-		my_read(file_desc, buffer, 500);
+		my_read(file_desc, buffer, 20);
 		printf("File read output: %s \n", buffer);		
 	}
 	clear_buffer(buffer);
 	my_close(file_desc);
 
 	// Write Test Case 1
-	int fd1 = my_open("write_secret.txt", O_WRONLY);
-	if (fd1 == -1)
+	printf("Write Test Case 1 - writing a top secret block to file \n");
+	file_desc = my_open("write_secret.txt", O_WRONLY);
+	if (file_desc == -1)
 	{
 		printf("Error opening the file. \n");
 	}
 	else
 	{
 		char buffer[BUF_SIZE] = "<SECRET>This is a secret</SECRET><TOP_SECRET>This is a top secret</TOP_SECRET>";
-		my_write(fd1, buffer, 500);
+		my_write(file_desc, buffer, BUF_SIZE);
 	}
-	my_close(fd1);
+	clear_buffer(buffer);
+	my_close(file_desc);
+
+	// Write Test Case 1
+	printf("Write Test Case 2 - writing incomplete top secret block to file \n");
+	file_desc = my_open("write_secret.txt", O_WRONLY);
+	if (file_desc == -1)
+	{
+		printf("Error opening the file. \n");
+	}
+	else
+	{
+		char buffer[BUF_SIZE] = "<TOP_SECRET>This is a top";
+		my_write(file_desc, buffer, BUF_SIZE);
+	}
+	clear_buffer(buffer);
+	my_close(file_desc);
 
 }
 
